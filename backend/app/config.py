@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     wallbit_api_key: str | None = None
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
+    telegram_bot_username: str = "wallbit_radar_bot"
+    telegram_use_polling: bool = True
     encryption_key: str = Field(default="demo-local-key-change-me")
     frontend_url: str = "http://localhost:3000"
     database_url: str = "sqlite:///./wallbit_pulse.db"

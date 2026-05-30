@@ -1,12 +1,25 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.config import get_settings
 from app.database import init_db
 from app.routes import alerts, connect, dashboard, forecast, ranking, reports, telegram, trades
+from app.services.telegram_bot import start_telegram_polling, stop_telegram_polling
 
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    await start_telegram_polling()
+    yield
+    await stop_telegram_polling()
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,17 +30,13 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    init_db()
-
-
 @app.get("/")
 def root() -> dict:
     return {
         "name": settings.app_name,
         "status": "ok",
-        "message": "Wallbit Pulse AI backend running in demo mode.",
+        "telegram_bot": settings.telegram_bot_username if settings.telegram_bot_token else None,
+        "message": "Wallbit Pulse AI backend running.",
     }
 
 
