@@ -124,7 +124,7 @@ class TelegramService:
             audit_log("telegram_linked", {"chat_id": chat_id, "username": username, "linked": bool(linked)})
             return {"linked": bool(linked), "chat_id": chat_id}
 
-        reply = self.handle_command(text)
+        reply = await self.handle_command(text)
         if reply:
             result = await self.send_message(reply, chat_id=chat_id)
             return {"reply": reply, "telegram": result}
@@ -142,64 +142,68 @@ class TelegramService:
                 return candidate
         return None
 
-    def handle_command(self, text: str) -> str:
+    async def handle_command(self, text: str) -> str:
+        from app.services.portfolio_service import PortfolioService
+        from app.services.radar_service import RadarService
+
         if text in {"/start", "/help"}:
             return (
                 "Hola, soy <b>Wallbit Pulse AI</b> (@wallbit_radar_bot).\n\n"
-                "Vincula tu cuenta desde la web y usa:\n"
+                "Vincula tu cuenta Wallbit desde la web y usa:\n"
                 "/resumen /riesgo /forecast /ranking /rebalancear /alertas\n\n"
                 "Ejemplo: /forecast BTC 500 30"
             )
         if text == "/resumen":
+            bundle = await PortfolioService().get_portfolio_bundle()
+            if bundle.get("requires_connection"):
+                return "Conecta tu API Key de Wallbit en la web para ver tu resumen real."
             return (
-                "<b>Resumen de hoy</b>\n"
-                "Portafolio: $8,760\n"
-                "Riesgo: Medio\n"
-                "Alerta: NVDA cayo 5.1%\n"
-                "Oportunidad: SPY score 82/100"
+                f"<b>Resumen de hoy</b>\n"
+                f"Portafolio: ${bundle['portfolio_value']:,.2f}\n"
+                f"Checking: ${bundle['checking_balance']:,.2f}\n"
+                f"Riesgo: {bundle.get('risk_level', 'Medio')}\n"
+                f"Alerta: {bundle.get('main_alert', 'Sin alertas')}"
             )
         if text.startswith("/forecast"):
             parts = text.split()
             symbol = parts[1].upper() if len(parts) > 1 else "BTC"
             amount = float(parts[2]) if len(parts) > 2 else 500
             days = int(parts[3]) if len(parts) > 3 else 30
-            forecast = self.forecast_service.run(
-                ForecastRequest(symbol=symbol, amount=amount, horizon_days=days, risk_profile="balanced")
-            )
-            return (
-                f"<b>{forecast.symbol}</b> - escenario {forecast.horizon_days} dias\n"
-                f"Monto simulado: ${forecast.amount:,.0f}\n\n"
-                f"Pesimista: ${forecast.bearish.pnl:,.0f}\n"
-                f"Base: ${forecast.base.pnl:,.0f}\n"
-                f"Optimista: ${forecast.bullish.pnl:,.0f}\n\n"
-                f"Riesgo: {forecast.risk}.\n"
-                "<i>Esto es una simulacion, no una ganancia garantizada.</i>"
-            )
+            try:
+                forecast = await self.forecast_service.run(
+                    ForecastRequest(symbol=symbol, amount=amount, horizon_days=days, risk_profile="balanced")
+                )
+            except ValueError as exc:
+                return str(exc)
+            return self.format_forecast_message(forecast)
         if text == "/ranking":
-            return (
-                "<b>Ranking de hoy</b>\n\n"
-                "1. SPY - 82 - Oportunidad defensiva\n"
-                "2. QQQ - 76 - Vigilar\n"
-                "3. NVDA - 68 - Riesgo alto\n"
-                "4. BTC - 63 - Alta volatilidad\n"
-                "5. TSLA - 58 - Vigilar"
+            ranking = await RadarService().ranking(limit=5)
+            if not ranking:
+                return "Conecta Wallbit para ver el ranking real de activos."
+            lines = "\n".join(
+                f"{i + 1}. {item['symbol']} - {item['score']} - {item['reason'][:40]}"
+                for i, item in enumerate(ranking)
             )
+            return f"<b>Ranking de hoy</b>\n\n{lines}"
         if text == "/riesgo":
-            return (
-                "Tu mayor riesgo esta en <b>NVDA</b>: 18% del portafolio "
-                "y caida reciente de 5.1%. Puedes simular rebalanceo con /rebalancear."
-            )
+            bundle = await PortfolioService().get_portfolio_bundle()
+            if bundle.get("requires_connection"):
+                return "Conecta Wallbit para analizar tu riesgo real."
+            return bundle.get("risk_detail", "Sin datos de riesgo.")
         if text == "/rebalancear":
-            return (
-                "Sugerencia: reducir NVDA de 18% a 12% y mover 6% a SPY.\n"
-                "Quieres ver simulacion? Usa /forecast SPY 500 30"
-            )
+            ranking = await RadarService().ranking(limit=1)
+            if not ranking:
+                return "Conecta Wallbit para recibir sugerencias reales."
+            top = ranking[0]["symbol"]
+            return f"Sugerencia: revisa exposicion en tu cartera y simula rebalanceo con /forecast {top} 500 30"
         if text == "/alertas":
-            return (
-                "<b>Alertas activas</b>\n"
-                "- Cuando NVDA caiga mas de 5%, enviar Telegram.\n"
-                "- Enviar resumen diario."
-            )
+            from app.services.alert_service import AlertService
+
+            alerts = AlertService().list_alerts()
+            if not alerts:
+                return "No tienes alertas activas. Crea una desde la web."
+            lines = "\n".join(f"- {alert.message}" for alert in alerts[:5])
+            return f"<b>Alertas activas</b>\n{lines}"
         if text.startswith("/simular"):
             parts = text.split()
             symbol = parts[1].upper() if len(parts) > 1 else "SPY"

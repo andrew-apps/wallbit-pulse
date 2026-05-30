@@ -9,17 +9,12 @@ from app.config import get_settings
 
 
 DEMO_PORTFOLIO = {
-    "checking_balance": 1250.0,
-    "portfolio_value": 8760.0,
-    "investment_cash": 1760.0,
-    "holdings": [
-        {"symbol": "SPY", "value": 2500, "exposure_percent": 28, "price": 542.18, "shares": 4.6},
-        {"symbol": "NVDA", "value": 1800, "exposure_percent": 18, "price": 128.44, "shares": 14.0, "change_percent": -5.1},
-        {"symbol": "AAPL", "value": 1200, "exposure_percent": 14, "price": 226.05, "shares": 5.3},
-        {"symbol": "BTC", "value": 1500, "exposure_percent": 17, "price": 65000, "shares": 0.023},
-        {"symbol": "CASH", "value": 1760, "exposure_percent": 20, "price": 1, "shares": 1760},
-    ],
+    "checking_balance": 0.0,
+    "portfolio_value": 0.0,
+    "investment_cash": 0.0,
+    "holdings": [],
     "demo": True,
+    "requires_connection": True,
 }
 
 ERROR_MESSAGES = {
@@ -193,3 +188,82 @@ class WallbitClient:
     @staticmethod
     def error_message(error_code: str) -> str:
         return ERROR_MESSAGES.get(error_code, ERROR_MESSAGES["connection_error"])
+
+    async def list_assets(self, limit: int = 50) -> list[dict[str, Any]]:
+        if self.is_demo:
+            return []
+
+        async with httpx.AsyncClient(timeout=25) as client:
+            response = await client.get(
+                f"{self.base_url}/api/public/v1/assets",
+                headers=self.headers,
+                params={"limit": limit},
+            )
+            response.raise_for_status()
+            data = response.json().get("data", [])
+            return data if isinstance(data, list) else data.get("items", [])
+
+    async def get_asset(self, symbol: str) -> dict[str, Any]:
+        if self.is_demo:
+            return {"symbol": symbol.upper(), "price": 0, "name": symbol.upper()}
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.get(
+                f"{self.base_url}/api/public/v1/assets/{symbol.upper()}",
+                headers=self.headers,
+            )
+            if response.status_code == 404:
+                return {"symbol": symbol.upper(), "price": 0, "name": symbol.upper()}
+            response.raise_for_status()
+            data = response.json().get("data", {})
+            price = data.get("price") or data.get("currentPrice") or data.get("current_price") or 0
+            return {
+                "symbol": symbol.upper(),
+                "name": data.get("name") or data.get("company_name") or symbol.upper(),
+                "price": float(price or 0),
+                "change_percent_7d": data.get("change_percent_7d") or data.get("change7d"),
+                "asset_class": data.get("asset_class") or data.get("type"),
+                "raw": data,
+            }
+
+    async def enrich_holdings(self, holdings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if self.is_demo or not holdings:
+            return holdings
+
+        symbols = [h["symbol"] for h in holdings if h.get("symbol") not in {"CASH", "USD"}]
+        async with httpx.AsyncClient(timeout=25) as client:
+            details = await asyncio.gather(*[self._fetch_asset_meta(client, s) for s in symbols])
+        meta_map = dict(details)
+
+        enriched: list[dict[str, Any]] = []
+        for item in holdings:
+            symbol = item.get("symbol", "")
+            meta = meta_map.get(symbol, {})
+            enriched.append(
+                {
+                    **item,
+                    "name": meta.get("name") or symbol,
+                    "change_7d": meta.get("change_7d", 0),
+                    "color": meta.get("color"),
+                }
+            )
+        return enriched
+
+    async def _fetch_asset_meta(self, client: httpx.AsyncClient, symbol: str) -> tuple[str, dict]:
+        try:
+            response = await client.get(
+                f"{self.base_url}/api/public/v1/assets/{symbol}",
+                headers=self.headers,
+            )
+            if response.status_code != 200:
+                return symbol, {"name": symbol, "change_7d": 0}
+            data = response.json().get("data", {})
+            price = float(data.get("price") or data.get("current_price") or 0)
+            change = data.get("change_percent_7d") or data.get("percent_change_7d") or data.get("change7d") or 0
+            return symbol, {
+                "name": data.get("name") or data.get("company_name") or symbol,
+                "change_7d": float(change or 0),
+                "price": price,
+            }
+        except (httpx.HTTPError, TypeError, ValueError):
+            return symbol, {"name": symbol, "change_7d": 0}

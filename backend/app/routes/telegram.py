@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from fastapi import Request
 
 from app.database import audit_log
 from app.models.forecast import ForecastRequest
@@ -59,14 +60,17 @@ async def telegram_webhook(request: Request) -> dict:
 
 @router.post("/telegram/send-forecast")
 async def send_forecast_to_telegram(payload: ForecastTelegramRequest) -> dict:
-    forecast = forecast_service.run(
-        ForecastRequest(
-            symbol=payload.symbol.upper(),
-            amount=payload.amount,
-            horizon_days=payload.horizon_days,
-            risk_profile=payload.risk_profile,
+    try:
+        forecast = await forecast_service.run(
+            ForecastRequest(
+                symbol=payload.symbol.upper(),
+                amount=payload.amount,
+                horizon_days=payload.horizon_days,
+                risk_profile=payload.risk_profile,
+            )
         )
-    )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     message = telegram_service.format_forecast_message(forecast)
     telegram_result = await telegram_service.send_message(message)
     audit_log("telegram_forecast_sent", {"symbol": payload.symbol, "telegram": telegram_result})

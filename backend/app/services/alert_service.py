@@ -40,17 +40,7 @@ class AlertService:
         with get_connection() as conn:
             rows = conn.execute("SELECT * FROM alerts ORDER BY created_at DESC").fetchall()
         if not rows:
-            return [
-                AlertOut(
-                    id="risk-nvda-5",
-                    symbol="NVDA",
-                    alert_type="drop_percent",
-                    severity="High",
-                    message="NVDA cayo 5.1% hoy. Tu exposicion es 18%.",
-                    snapshot_url=self.report_service.risk_snapshot_url("risk-nvda-5"),
-                    sent_to_telegram=True,
-                )
-            ]
+            return []
         return [
             AlertOut(
                 id=row["id"],

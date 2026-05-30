@@ -1,50 +1,54 @@
 from fastapi import APIRouter
 
-from app.services.wallbit_client import WallbitClient
-from app.services.wallbit_connection_service import WallbitConnectionService
+from app.services.alert_service import AlertService
+from app.services.portfolio_service import PortfolioService
+from app.services.radar_service import RadarService
 
 router = APIRouter()
-connection_service = WallbitConnectionService()
-
-
-def _risk_from_holdings(holdings: list[dict]) -> tuple[str, str]:
-    if not holdings:
-        return "Bajo", "Sin posiciones en inversion."
-
-    sorted_holdings = sorted(holdings, key=lambda item: item.get("exposure_percent", 0), reverse=True)
-    top = sorted_holdings[0]
-    exposure = top.get("exposure_percent", 0)
-    symbol = top.get("symbol", "N/A")
-
-    if exposure >= 20:
-        return "Alto", f"Mayor exposicion: {symbol} {exposure}%"
-    if exposure >= 12:
-        return "Medio", f"Mayor exposicion: {symbol} {exposure}%"
-    return "Bajo", f"Cartera diversificada. Top: {symbol} {exposure}%"
+portfolio_service = PortfolioService()
+radar_service = RadarService()
+alert_service = AlertService()
 
 
 @router.get("/dashboard")
 async def dashboard() -> dict:
-    status = connection_service.get_status()
-    api_key = connection_service.get_api_key()
-    client = WallbitClient(api_key=api_key or "demo")
-    portfolio = await client.get_portfolio()
-    risk_level, risk_detail = _risk_from_holdings(portfolio.get("holdings", []))
+    bundle = await portfolio_service.get_portfolio_bundle()
+    alerts = alert_service.list_alerts()
+    ranking = await radar_service.ranking(limit=1)
 
-    top_symbol = "SPY"
-    holdings = portfolio.get("holdings", [])
+    holdings = bundle.get("holdings", [])
+    top = holdings[0] if holdings else None
+    best = ranking[0]["symbol"] if ranking else None
+
+    main_alert = "Conecta Wallbit para ver alertas reales."
+    if alerts:
+        main_alert = alerts[0].message
+    elif top:
+        change = top.get("change_7d", 0)
+        direction = "cayo" if change < 0 else "subio"
+        main_alert = f"{top['symbol']} {direction} {abs(change):.1f}% · exposicion {top.get('exposure_percent', 0)}%"
+
+    risk_level = "Medio"
+    risk_detail = "Sin datos de cartera."
     if holdings:
-        top_symbol = holdings[0].get("symbol", "SPY")
+        sorted_h = sorted(holdings, key=lambda h: h.get("exposure_percent", 0), reverse=True)
+        top_h = sorted_h[0]
+        exp = top_h.get("exposure_percent", 0)
+        if exp >= 20:
+            risk_level = "Alto"
+        elif exp >= 12:
+            risk_level = "Medio"
+        else:
+            risk_level = "Bajo"
+        risk_detail = f"Mayor exposicion: {top_h.get('symbol')} {exp}%"
 
     return {
-        "connected": status.get("connected", False),
-        "demo": portfolio.get("demo", True),
-        "masked_key": status.get("masked_key"),
-        "portfolio_value": portfolio["portfolio_value"],
-        "checking_balance": portfolio["checking_balance"],
-        "main_alert": "NVDA cayo 5.1% hoy" if portfolio.get("demo") else f"Posicion principal: {top_symbol}",
-        "best_opportunity": "SPY",
-        "risk_level": risk_level if not portfolio.get("demo") else "Medio",
+        **bundle,
+        "main_alert": main_alert,
+        "best_opportunity": best or "—",
+        "best_opportunity_score": ranking[0]["score"] if ranking else 0,
+        "risk_level": risk_level,
         "risk_detail": risk_detail,
+        "alerts": [a.model_dump() for a in alerts[:5]],
         "holdings_count": len(holdings),
     }
