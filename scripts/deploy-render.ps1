@@ -28,7 +28,7 @@ Write-Host "Pasos manuales (primer deploy):" -ForegroundColor Cyan
 Write-Host "  1. https://dashboard.render.com/ → New → Blueprint"
 Write-Host "  2. Repo: andrew-apps/wallbit-pulse | Branch: main"
 Write-Host "  3. Nombre blueprint: wallbit-pulse"
-Write-Host "  4. Completa wallbit-pulse-secrets (WALLBIT_API_KEY, etc.)"
+Write-Host "  4. Completa wallbit-pulse-secrets: WALLBIT_API_KEY y demas"
 Write-Host "  5. Deploy Blueprint"
 Write-Host ""
 Start-Process "https://dashboard.render.com/blueprint/new"
