@@ -41,6 +41,27 @@ CREATE TABLE IF NOT EXISTS trade_confirmations (
     confirmation_text TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS telegram_links (
+    user_id TEXT PRIMARY KEY,
+    telegram_chat_id TEXT NOT NULL,
+    telegram_username TEXT,
+    linked_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS telegram_link_codes (
+    code TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS wallbit_connections (
+    user_id TEXT PRIMARY KEY,
+    encrypted_api_key TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'read_only',
+    permissions TEXT NOT NULL DEFAULT 'read',
+    connected_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
