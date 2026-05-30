@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { ApiError, connectWallbit, connectWallbitDemo } from "@/lib/api"
+import { ApiError, connectWallbit } from "@/lib/api"
 
 export function ConnectWallbitCard() {
   const router = useRouter()
@@ -23,7 +23,7 @@ export function ConnectWallbitCard() {
     setSuccessMessage("")
 
     if (!apiKey.trim()) {
-      setError("Ingresa tu API Key de Wallbit o usa el modo demo.")
+      setError("Ingresa tu API Key de Wallbit para ver datos reales.")
       return
     }
 
@@ -32,28 +32,13 @@ export function ConnectWallbitCard() {
       const result = await connectWallbit(apiKey.trim(), readOnly ? "read_only" : "trade")
       setConnected(true)
       setSuccessMessage(result.message)
-      setTimeout(() => router.push("/telegram"), 900)
+      setTimeout(() => router.push("/dashboard"), 900)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
         setError("No pudimos validar la conexion. Verifica que el backend este corriendo en :8000.")
       }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function startDemo() {
-    setError("")
-    setLoading(true)
-    try {
-      const result = await connectWallbitDemo()
-      setConnected(true)
-      setSuccessMessage(result.message)
-      setTimeout(() => router.push("/telegram"), 700)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo activar el modo demo.")
     } finally {
       setLoading(false)
     }
@@ -67,6 +52,7 @@ export function ConnectWallbitCard() {
       <h1 className="mt-5 text-2xl font-semibold">Conecta tu cuenta</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         Usaremos tu API Key con permiso <strong>read</strong> para leer balances y portafolio desde api.wallbit.io.
+        Sin datos ficticios.
       </p>
 
       <div className="mt-6 space-y-5">
@@ -77,7 +63,7 @@ export function ConnectWallbitCard() {
             type="password"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder="wb_live_..."
+            placeholder="wlb_..."
             autoComplete="off"
             className="font-mono"
           />
@@ -94,7 +80,7 @@ export function ConnectWallbitCard() {
         <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
           <div>
             <Label htmlFor="read-only">Modo solo lectura</Label>
-            <p className="mt-1 text-xs text-muted-foreground">Recomendado para el MVP y la demo.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Recomendado: solo lectura, sin operaciones.</p>
           </div>
           <Switch id="read-only" checked={readOnly} onCheckedChange={setReadOnly} />
         </div>
@@ -107,10 +93,6 @@ export function ConnectWallbitCard() {
         <Button onClick={validateConnection} disabled={loading} className="w-full" size="lg">
           {loading ? "Validando con Wallbit..." : connected ? "Conexion validada" : "Validar conexion"}
           {connected ? <CheckCircle2 className="size-4" /> : null}
-        </Button>
-
-        <Button variant="ghost" className="w-full" onClick={startDemo} disabled={loading}>
-          Probar demo sin API Key
         </Button>
       </div>
     </div>

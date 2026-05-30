@@ -14,12 +14,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RiskBadge, RecommendationBadge } from "@/components/risk-badge"
-import { formatCurrency, type Holding } from "@/lib/data"
+import { formatCurrency } from "@/lib/data"
+import type { HoldingItem } from "@/lib/types"
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  holding: Holding | null
+  holding: HoldingItem | null
   side?: "Comprar" | "Vender"
   defaultAmount?: number
 }
@@ -30,7 +31,8 @@ export function TradeModal({ open, onOpenChange, holding, side = "Comprar", defa
 
   if (!holding) return null
 
-  const qty = holding.price > 0 ? amount / holding.price : 0
+  const price = holding.price ?? 0
+  const qty = price > 0 ? amount / price : 0
   const fee = amount * 0.001
 
   function confirm() {
@@ -69,7 +71,7 @@ export function TradeModal({ open, onOpenChange, holding, side = "Comprar", defa
               <DialogTitle className="flex items-center gap-2">
                 <span
                   className="grid size-8 place-items-center rounded-lg text-xs font-bold"
-                  style={{ backgroundColor: `${holding.color}26`, color: holding.color }}
+                  style={{ backgroundColor: `${holding.color ?? "var(--primary)"}26`, color: holding.color ?? "var(--primary)" }}
                 >
                   {holding.symbol.slice(0, 3)}
                 </span>
@@ -94,7 +96,7 @@ export function TradeModal({ open, onOpenChange, holding, side = "Comprar", defa
               <dl className="space-y-2.5 rounded-lg border border-border bg-secondary/30 p-4 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Precio actual</dt>
-                  <dd className="tabular-nums">{formatCurrency(holding.price, holding.symbol === "BTC" ? 0 : 2)}</dd>
+                  <dd className="tabular-nums">{formatCurrency(price, holding.symbol === "BTC" ? 0 : 2)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Cantidad estimada</dt>
@@ -112,13 +114,15 @@ export function TradeModal({ open, onOpenChange, holding, side = "Comprar", defa
                 </div>
               </dl>
 
-              <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
-                <span className="text-xs text-muted-foreground">Recomendación AI</span>
-                <div className="flex items-center gap-2">
-                  <RiskBadge level={holding.risk} />
-                  <RecommendationBadge value={holding.recommendation} />
+              {(holding.risk || holding.recommendation) && (
+                <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                  <span className="text-xs text-muted-foreground">Recomendación AI</span>
+                  <div className="flex items-center gap-2">
+                    {holding.risk ? <RiskBadge level={holding.risk} /> : null}
+                    {holding.recommendation ? <RecommendationBadge value={holding.recommendation} /> : null}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex items-start gap-2 rounded-lg border border-chart-4/30 bg-chart-4/10 p-3 text-xs text-chart-4">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0" />

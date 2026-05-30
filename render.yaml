@@ -1,0 +1,64 @@
+# Render Blueprint — Wallbit Pulse monorepo
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: wallbit-pulse-api
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
+      - key: WALLBIT_BASE_URL
+        value: https://api.wallbit.io
+      - key: WALLBIT_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        value: wallbit_radar_bot
+      - key: TELEGRAM_USE_POLLING
+        value: "true"
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: CEREBRAS_MODEL
+        value: gpt-oss-120b
+      - key: YAHOO_DEFAULT_PERIOD
+        value: 1y
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: wallbit-pulse-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        value: sqlite:///./data/wallbit_pulse.db
+    disk:
+      name: pulse-api-data
+      mountPath: /opt/render/project/src/backend/data
+      sizeGB: 1
+
+  - type: web
+    name: wallbit-pulse-web
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: front
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: wallbit-pulse-api
+          envVarKey: RENDER_EXTERNAL_URL

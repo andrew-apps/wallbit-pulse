@@ -11,7 +11,7 @@ export function MinimalHeader() {
       </Link>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" className="hidden sm:inline-flex">
-          <Link href="/dashboard">Probar demo</Link>
+          <Link href="/dashboard">Dashboard</Link>
         </Button>
         <Button asChild>
           <Link href="/connect">

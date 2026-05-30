@@ -1,8 +1,13 @@
+"use client"
+
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ArrowRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ranking, type RadarLabel } from "@/lib/data"
+import { getRanking } from "@/lib/api"
+import type { RadarAsset } from "@/lib/types"
+import type { RadarLabel } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
 const labelStyles: Record<RadarLabel, string> = {
@@ -14,6 +19,28 @@ const labelStyles: Record<RadarLabel, string> = {
 }
 
 export function InvestmentRanking() {
+  const [ranking, setRanking] = useState<RadarAsset[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getRanking()
+      .then(setRanking)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        Cargando ranking...
+      </div>
+    )
+  }
+
+  if (!ranking.length) {
+    return <p className="text-sm text-muted-foreground">Conecta Wallbit para ver el ranking de activos.</p>
+  }
+
   return (
     <div className="grid gap-3">
       {ranking.slice(0, 5).map((asset, index) => (
@@ -28,7 +55,7 @@ export function InvestmentRanking() {
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
-                    labelStyles[asset.label],
+                    labelStyles[asset.label as RadarLabel] ?? labelStyles.Neutral,
                   )}
                 >
                   {asset.label}

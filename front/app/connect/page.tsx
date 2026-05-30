@@ -24,11 +24,11 @@ export default function ConnectPage() {
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
             <Lock className="size-3.5" />
-            Modo seguro para demo fintech
+            Conexion segura con Wallbit
           </span>
           <h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-5xl">Conecta Wallbit sin ruido.</h1>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-            Puedes empezar en modo solo lectura. Ninguna operacion se ejecuta sin confirmacion.
+            Conecta tu API Key de Wallbit. Todos los datos del producto son reales: portafolio, precios, scores y alertas.
           </p>
           <div className="mt-6 grid max-w-lg gap-3 text-sm text-muted-foreground">
             <p className="rounded-lg border border-border bg-card p-4">1. Validamos acceso de lectura.</p>

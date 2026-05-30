@@ -3,18 +3,29 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Activity, Bell, CircleDot, Menu, Radar, Send, TrendingUp } from "lucide-react"
-import { useState } from "react"
+import {
+  Bell,
+  CircleDot,
+  History,
+  LayoutDashboard,
+  Menu,
+  Radar,
+  Send,
+  TrendingUp,
+} from "lucide-react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
 import { navItems } from "@/lib/data"
+import { getWallbitStatus } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 const iconMap = {
-  Activity,
+  LayoutDashboard,
   Radar,
   TrendingUp,
+  History,
   Bell,
   Send,
 }
@@ -39,7 +50,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             )}
           >
             <Icon className="size-[18px] shrink-0" />
-            {item.label}
+            <span className="truncate">{item.label}</span>
           </Link>
         )
       })}
@@ -48,6 +59,12 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const [connected, setConnected] = useState(false)
+
+  useEffect(() => {
+    getWallbitStatus().then((status) => setConnected(status.connected && !status.demo))
+  }, [])
+
   return (
     <div className="flex h-full flex-col gap-6 p-4">
       <Link href="/" onClick={onNavigate} className="px-2 pt-2">
@@ -57,10 +74,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="mt-auto rounded-xl border border-border bg-secondary/50 p-3">
         <div className="flex items-center gap-2 text-xs font-medium text-accent">
           <CircleDot className="size-3.5 animate-pulse" />
-          Modo demo read-only
+          {connected ? "Wallbit conectado" : "Sin conectar"}
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          Ninguna operacion se ejecuta sin confirmacion explicita.
+          {connected
+            ? "Sincronizacion en tiempo real activa. Ultima actualizacion hace 12s."
+            : "Ninguna operacion se ejecuta sin confirmacion explicita."}
         </p>
       </div>
     </div>
@@ -75,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden w-64 shrink-0 border-r border-border bg-sidebar lg:block">
-        <div className="sticky top-0 h-screen">
+        <div className="sticky top-0 h-screen overflow-y-auto">
           <SidebarContent />
         </div>
       </aside>
@@ -95,15 +114,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
 
-          <h1 className="text-base font-semibold tracking-tight md:text-lg">{title}</h1>
+          <h1 className="truncate text-base font-semibold tracking-tight md:text-lg">{title}</h1>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-              <span className="size-1.5 rounded-full bg-accent" />
-              Telegram listo
+            <span className="hidden items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs text-accent sm:flex">
+              <span className="size-1.5 rounded-full bg-accent animate-pulse-ring" />
+              Mercado abierto
             </span>
             <div className="grid size-9 place-items-center rounded-full bg-primary/15 text-sm font-semibold text-primary ring-1 ring-primary/30">
-              AI
+              JL
             </div>
           </div>
         </header>
