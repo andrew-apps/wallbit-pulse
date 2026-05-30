@@ -1,31 +1,17 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter, Space_Grotesk } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" })
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" })
 
 export const metadata: Metadata = {
-  title: "Wallbit Pulse AI - Tu radar predictivo conectado a Wallbit",
-  description: "Simula escenarios, mide riesgo y recibe alertas visuales por Telegram antes de tomar decisiones.",
-  generator: "v0.app",
+  title: "Wallbit Radar — Intelligent signals. Smarter decisions.",
+  description: "AI + ML investment assistant conectado a Wallbit. Historial Yahoo Finance, forecast Monte Carlo y explicaciones Cerebras.",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
+    icon: [{ url: "/brand/logo-mark.svg", type: "image/svg+xml" }],
+    apple: "/brand/logo-mark.svg",
   },
 }
 
@@ -35,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`${geist.variable} ${geistMono.variable} dark bg-background`}>
+    <html lang="es" className={`${inter.variable} ${spaceGrotesk.variable} dark bg-background`}>
       <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === "production" && <Analytics />}
