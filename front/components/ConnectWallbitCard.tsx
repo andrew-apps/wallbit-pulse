@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { connectWallbit } from "@/lib/api"
+import { ApiError, connectWallbit, connectWallbitDemo } from "@/lib/api"
 
 export function ConnectWallbitCard() {
   const router = useRouter()
@@ -16,22 +16,44 @@ export function ConnectWallbitCard() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
   async function validateConnection() {
     setError("")
+    setSuccessMessage("")
 
     if (!apiKey.trim()) {
-      setError("Ingresa una API Key o usa el modo demo.")
+      setError("Ingresa tu API Key de Wallbit o usa el modo demo.")
       return
     }
 
     setLoading(true)
     try {
-      await connectWallbit(apiKey, readOnly ? "read_only" : "trade")
+      const result = await connectWallbit(apiKey.trim(), readOnly ? "read_only" : "trade")
       setConnected(true)
+      setSuccessMessage(result.message)
+      setTimeout(() => router.push("/telegram"), 900)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError("No pudimos validar la conexion. Verifica que el backend este corriendo en :8000.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function startDemo() {
+    setError("")
+    setLoading(true)
+    try {
+      const result = await connectWallbitDemo()
+      setConnected(true)
+      setSuccessMessage(result.message)
       setTimeout(() => router.push("/telegram"), 700)
-    } catch {
-      setError("No pudimos validar la conexion. Revisa permisos, rate limit o conectividad.")
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo activar el modo demo.")
     } finally {
       setLoading(false)
     }
@@ -44,7 +66,7 @@ export function ConnectWallbitCard() {
       </div>
       <h1 className="mt-5 text-2xl font-semibold">Conecta tu cuenta</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Usaremos tu API Key para leer balances, portafolio y activos. Puedes empezar en modo solo lectura.
+        Usaremos tu API Key con permiso <strong>read</strong> para leer balances y portafolio desde api.wallbit.io.
       </p>
 
       <div className="mt-6 space-y-5">
@@ -60,6 +82,13 @@ export function ConnectWallbitCard() {
             className="font-mono"
           />
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          {successMessage ? (
+            <p className="text-xs text-accent">{successMessage}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Crea la key en Wallbit → Settings → API Keys con permiso de lectura.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
@@ -72,15 +101,15 @@ export function ConnectWallbitCard() {
 
         <div className="flex items-start gap-2 rounded-lg border border-accent/25 bg-accent/10 p-3 text-xs text-accent">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />
-          No ejecutaremos operaciones sin confirmacion explicita. Nunca mostraremos tu API Key despues de guardarla.
+          La key se cifra en el backend y nunca se muestra completa despues de guardarla.
         </div>
 
         <Button onClick={validateConnection} disabled={loading} className="w-full" size="lg">
-          {loading ? "Validando..." : connected ? "Conexion validada" : "Validar conexion"}
+          {loading ? "Validando con Wallbit..." : connected ? "Conexion validada" : "Validar conexion"}
           {connected ? <CheckCircle2 className="size-4" /> : null}
         </Button>
 
-        <Button variant="ghost" className="w-full" onClick={() => router.push("/telegram")}>
+        <Button variant="ghost" className="w-full" onClick={startDemo} disabled={loading}>
           Probar demo sin API Key
         </Button>
       </div>

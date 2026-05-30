@@ -6,6 +6,17 @@ export type ConnectWallbitResponse = {
   connected: boolean
   permissions: string[]
   message: string
+  demo?: boolean
+  masked_key?: string | null
+}
+
+export type WallbitStatusResponse = {
+  connected: boolean
+  demo: boolean
+  mode: string | null
+  permissions: string[]
+  masked_key: string | null
+  connected_at?: string | null
 }
 
 export type DashboardResponse = {
@@ -14,6 +25,11 @@ export type DashboardResponse = {
   main_alert: string
   best_opportunity: string
   risk_level: RiskLevel
+  connected?: boolean
+  demo?: boolean
+  masked_key?: string | null
+  risk_detail?: string
+  holdings_count?: number
 }
 
 export type ForecastRequest = {
@@ -32,3 +48,26 @@ export type RankingResponse = {
   risk: RiskLevel
   reason: string
 }[]
+
+export type TelegramStatusResponse = {
+  configured: boolean
+  linked: boolean
+  chat_id: string | null
+  username: string | null
+  bot_username: string | null
+  bot_url: string
+  can_send: boolean
+  demo: boolean
+}
+
+export type TelegramLinkCodeResponse = {
+  code: string
+  bot_url: string
+  instructions: string
+}
+
+export type TelegramSendResponse = {
+  sent: boolean
+  demo: boolean
+  message?: string
+}

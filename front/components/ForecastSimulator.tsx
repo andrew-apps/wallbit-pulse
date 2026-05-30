@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Bell, Send, Shuffle, TrendingUp } from "lucide-react"
+import { Bell, Loader2, Send, Shuffle, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScenarioCards } from "@/components/ScenarioCards"
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal"
 import { DisclaimerBanner } from "@/components/DisclaimerBanner"
+import { sendForecastToTelegram } from "@/lib/api"
 import { forecastPresets, type ForecastPreset, type RiskLevel } from "@/lib/data"
 
 const symbols = ["BTC", "ETH", "SPY", "QQQ", "AAPL", "NVDA", "TSLA"]
@@ -48,6 +49,8 @@ export function ForecastSimulator() {
   const [horizon, setHorizon] = useState(30)
   const [profile, setProfile] = useState("balanced")
   const [telegramSent, setTelegramSent] = useState(false)
+  const [telegramLoading, setTelegramLoading] = useState(false)
+  const [telegramDemo, setTelegramDemo] = useState(false)
   const [tradeOpen, setTradeOpen] = useState(false)
 
   const forecast = useMemo(() => {
@@ -55,6 +58,24 @@ export function ForecastSimulator() {
     if (preset && amount === 500 && horizon === 30) return preset
     return buildFallback(symbol, amount, horizon)
   }, [symbol, amount, horizon])
+
+  async function handleSendTelegram() {
+    setTelegramLoading(true)
+    try {
+      const result = await sendForecastToTelegram({
+        symbol,
+        amount,
+        horizon_days: horizon,
+        risk_profile: profile as "conservative" | "balanced" | "aggressive",
+      })
+      setTelegramSent(result.sent)
+      setTelegramDemo(result.demo)
+    } catch {
+      setTelegramSent(false)
+    } finally {
+      setTelegramLoading(false)
+    }
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
@@ -157,9 +178,13 @@ export function ForecastSimulator() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Button onClick={() => setTelegramSent(true)}>
-            <Send className="size-4" />
-            {telegramSent ? "Enviado a Telegram" : "Enviar a Telegram"}
+          <Button onClick={handleSendTelegram} disabled={telegramLoading}>
+            {telegramLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            {telegramSent
+              ? telegramDemo
+                ? "Preview demo enviado"
+                : "Enviado a Telegram"
+              : "Enviar a Telegram"}
           </Button>
           <Button variant="outline">
             <Bell className="size-4" />
