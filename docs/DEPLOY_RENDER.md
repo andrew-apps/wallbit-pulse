@@ -1,80 +1,73 @@
-# Despliegue en Render — Wallbit Pulse
+# Despliegue en Render — Wallbit Pulse (plan FREE)
 
-Blueprint IaC: [`render.yaml`](../render.yaml)  
-Repositorio: [andrew-apps/wallbit-pulse](https://github.com/andrew-apps/wallbit-pulse)
+Blueprint: [`render.yaml`](../render.yaml)  
+Repo: [andrew-apps/wallbit-pulse](https://github.com/andrew-apps/wallbit-pulse)
 
-## Servicios creados
+## Servicios (plan free)
 
-| Nombre | Tipo | Carpeta | URL ejemplo |
-|--------|------|---------|-------------|
-| `wallbit-pulse-api` | Web (Python 3.11) | `backend/` | `https://wallbit-pulse-api.onrender.com` |
-| `wallbit-pulse-web` | Web (Node 20) | `front/` | `https://wallbit-pulse-web.onrender.com` |
+| Servicio | Plan | RAM aprox. |
+|----------|------|------------|
+| `wallbit-pulse-api` | **free** | 512 MB |
+| `wallbit-pulse-web` | **free** | 512 MB |
 
-Grupo de secretos: **`wallbit-pulse-secrets`**
+Ambos en región **Oregon**. Sin disco persistente (no disponible en free).
 
-## Variables que debes completar en Render
+## Limitaciones del plan free (importante)
 
-Al aplicar el Blueprint, Render te pedirá:
+| Tema | Comportamiento |
+|------|----------------|
+| **Cold start** | Tras ~15 min sin tráfico, el servicio duerme. La primera petición puede tardar **30–90 s**. |
+| **Horas** | 750 h/mes compartidas entre todos tus servicios free del workspace. |
+| **SQLite** | Base de datos **efímera**: se reinicia en cada redeploy. Conexiones Wallbit se pierden → vuelve a `/connect`. |
+| **Playwright** | **No incluido** en Render (`requirements-render.txt`). Screenshots Telegram deshabilitados; el resto funciona. |
+| **Telegram polling** | **Desactivado** (`TELEGRAM_USE_POLLING=false`). El bot no escucha en background en free. |
+| **Builds** | Menos dependencias = build más rápido y menos riesgo de quedarte sin minutos. |
 
-| Variable | Obligatoria | Descripción |
-|----------|-------------|-------------|
-| `WALLBIT_API_KEY` | Sí | API Key Wallbit (`read`) |
-| `TELEGRAM_BOT_TOKEN` | No | Bot @wallbit_radar_bot |
-| `TELEGRAM_CHAT_ID` | No | Chat vinculado |
-| `CEREBRAS_API_KEY` | No | Explicaciones IA en forecast |
+## Qué sí funciona en free
 
-Generadas automáticamente: `ENCRYPTION_KEY`, `NEXT_PUBLIC_API_URL`, `FRONTEND_URL`.
+- Dashboard, radar, forecast (Yahoo + Monte Carlo)
+- Conexión Wallbit vía `/connect`
+- Cerebras IA (si pones `CEREBRAS_API_KEY`)
+- Track record (hasta el próximo redeploy)
+- Alertas guardadas en SQLite (efímero)
 
-## Desplegar (Dashboard — recomendado)
+## Secretos al desplegar
 
-1. [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**
-2. Conecta GitHub → repo **`andrew-apps/wallbit-pulse`**
-3. Branch: **`main`**
-4. Blueprint name: **`wallbit-pulse`**
-5. Revisa los 2 servicios + grupo `wallbit-pulse-secrets`
-6. Completa secretos → **Deploy Blueprint**
+Grupo **`wallbit-pulse-secrets`**:
 
-## Desplegar (Cursor + Render MCP)
+| Variable | ¿Obligatoria? |
+|----------|----------------|
+| `WALLBIT_API_KEY` | Sí (recomendado en env group para que la API arranque con datos) |
+| `CEREBRAS_API_KEY` | No |
+| `TELEGRAM_BOT_TOKEN` | No |
+| `TELEGRAM_CHAT_ID` | No |
 
-1. Crea API Key: [Account Settings → API Keys](https://dashboard.render.com/u/settings#api-keys)
-2. En Windows (PowerShell):
+Auto-generadas: `ENCRYPTION_KEY`, `NEXT_PUBLIC_API_URL`, `FRONTEND_URL`.
 
-```powershell
-[System.Environment]::SetEnvironmentVariable("RENDER_API_KEY", "rnd_tu_key", "User")
-```
+## Desplegar
 
-3. Reinicia Cursor. En el chat:
-
-```
-Set my Render workspace to [TU_WORKSPACE]
-List my Render services
-```
-
-4. El MCP **no aplica Blueprints** directamente; usa el Dashboard para el primer deploy. Después el MCP sirve para logs, métricas y env vars.
-
-## Script local
+1. [Render → New Blueprint](https://dashboard.render.com/blueprint/new)
+2. Repo **`andrew-apps/wallbit-pulse`**, branch **`main`**
+3. Nombre: **`wallbit-pulse`**
+4. Verifica que ambos servicios muestren **Plan: Free**
+5. Completa secretos → **Deploy Blueprint**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/deploy-render.ps1
 ```
 
-Abre el asistente de Blueprint y valida `render.yaml` si tienes Render CLI.
-
 ## Post-deploy
 
-1. Abre `https://wallbit-pulse-web.onrender.com/connect`
-2. Conecta tu API Key Wallbit (o usa la del grupo si ya la pusiste)
-3. Prueba `/forecast?symbol=GE` y `/dashboard`
+1. Espera el primer deploy (API ~3–5 min en free)
+2. Abre `https://wallbit-pulse-web.onrender.com/connect`
+3. Conecta Wallbit (necesario si SQLite se reinició)
+4. Prueba `/forecast?symbol=GE`
 
-## Notas técnicas
+## Si necesitas persistencia real
 
-- **`TELEGRAM_USE_POLLING=false`** en producción (evita conflictos 409 en Render).
-- **SQLite** en `backend/data/` — en plan free los datos pueden perderse al redeploy; para persistencia usa plan **Starter** + disco en `render.yaml`.
-- **Playwright** (screenshots Telegram) no corre en free; el resto de la API sí.
-- **CORS**: `FRONTEND_URL` se enlaza solo al dominio de `wallbit-pulse-web`.
+Pasa **`wallbit-pulse-api`** a plan **Starter** (~7 USD/mes) y añade disco en `render.yaml`. No es necesario para demo/hackathon.
 
 ## Health checks
 
-- API: `GET /` → `{ "status": "ok" }`
-- API docs: `/docs`
-- Web: `/`
+- API: `GET /`
+- Docs: `/docs`

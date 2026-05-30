@@ -1,6 +1,6 @@
-# Wallbit Pulse — Render Blueprint (monorepo)
+# Wallbit Pulse — Render Blueprint (FREE tier)
+# Plan: free en ambos servicios · sin disco persistente · sin Playwright
 # Docs: https://render.com/docs/blueprint-spec
-# Deploy: Dashboard → New → Blueprint → andrew-apps/wallbit-pulse
 
 envVarGroups:
   - name: wallbit-pulse-secrets
@@ -23,15 +23,16 @@ services:
     repo: https://github.com/andrew-apps/wallbit-pulse
     branch: main
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    preDeployCommand: mkdir -p data
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /
     autoDeployTrigger: commit
     envVars:
       - fromGroup: wallbit-pulse-secrets
       - key: PYTHON_VERSION
         value: "3.11.11"
+      - key: ENVIRONMENT
+        value: production
       - key: WALLBIT_BASE_URL
         value: https://api.wallbit.io
       - key: TELEGRAM_BOT_USERNAME
@@ -45,7 +46,7 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: sqlite:///./data/wallbit_pulse.db
+        value: sqlite:///./wallbit_pulse.db
       - key: FRONTEND_URL
         fromService:
           type: web

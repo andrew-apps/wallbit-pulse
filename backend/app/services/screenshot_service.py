@@ -15,7 +15,10 @@ class ScreenshotService:
         try:
             from playwright.async_api import async_playwright
         except ImportError as exc:
-            raise RuntimeError("Playwright is not installed. Run: python -m playwright install chromium") from exc
+            raise RuntimeError(
+                "Screenshots deshabilitados en Render free (Playwright no instalado). "
+                "Usa el reporte HTML en el navegador."
+            ) from exc
 
         if output_path is None:
             tmp = NamedTemporaryFile(delete=False, suffix=".png")
