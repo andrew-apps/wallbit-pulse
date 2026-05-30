@@ -5,13 +5,6 @@ import { MinimalHeader } from "@/components/MinimalHeader"
 import { Button } from "@/components/ui/button"
 import { DisclaimerBanner } from "@/components/DisclaimerBanner"
 
-const palette = [
-  { name: "Deep Navy", hex: "#0B0F17" },
-  { name: "Electric Blue", hex: "#2563EB" },
-  { name: "Radar Green", hex: "#14D1A3" },
-  { name: "Cool Gray", hex: "#A1AAB8" },
-]
-
 const pillars = [
   { icon: ShieldCheck, title: "Trusted", text: "Secure and Transparent" },
   { icon: Brain, title: "Intelligent", text: "AI-Powered Insights (Cerebras)" },
@@ -49,22 +42,9 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-[280px_1fr]">
-          <div className="brand-card glow-green flex flex-col items-center p-6 text-center">
+        <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-[auto_1fr]">
+          <div className="brand-card glow-green flex items-center justify-center p-6">
             <Image src="/brand/logo-mark.svg" alt="Wallbit Radar" width={96} height={96} className="size-24" />
-            <p className="font-display mt-4 text-lg font-semibold">
-              Wallbit <span className="text-primary">Radar</span>
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">Brand Identity · UI Kit</p>
-            <div className="mt-5 grid w-full grid-cols-2 gap-2">
-              {palette.map((c) => (
-                <div key={c.hex} className="rounded-lg border border-border p-2 text-left">
-                  <span className="block size-6 rounded-md ring-1 ring-border" style={{ background: c.hex }} />
-                  <p className="mt-1 text-[10px] font-medium">{c.name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">{c.hex}</p>
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="brand-card glow-cyan p-5 md:p-6">
