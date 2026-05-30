@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     encryption_key: str = Field(default="demo-local-key-change-me")
     frontend_url: str = "http://localhost:3000"
     database_url: str = "sqlite:///./wallbit_pulse.db"
+    cerebras_api_key: str | None = None
+    cerebras_model: str = "gpt-oss-120b"
+    yahoo_default_period: str = "1y"
 
     model_config = {
         "env_file": ".env",

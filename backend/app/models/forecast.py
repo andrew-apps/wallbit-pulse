@@ -13,6 +13,19 @@ class Scenario(BaseModel):
     price: float | None = None
 
 
+class HistoryPoint(BaseModel):
+    date: str
+    close: float
+    volume: int | None = None
+
+
+class ProjectionPoint(BaseModel):
+    date: str
+    base: float
+    bearish: float
+    bullish: float
+
+
 class ForecastResponse(BaseModel):
     symbol: str
     current_price: float
@@ -24,3 +37,9 @@ class ForecastResponse(BaseModel):
     risk: str
     explanation: str
     disclaimer: str
+    ai_provider: str = "fallback"
+    yahoo_period: str = "1y"
+    daily_volatility: float | None = None
+    backtest_mape_pct: float | None = None
+    historical: list[HistoryPoint] = []
+    projection: list[ProjectionPoint] = []

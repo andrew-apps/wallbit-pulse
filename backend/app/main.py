@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db
-from app.routes import alerts, connect, dashboard, forecast, ranking, reports, telegram, trades
+from app.routes import alerts, connect, dashboard, forecast, market, ranking, reports, telegram, track_record, trades
 from app.services.telegram_bot import start_telegram_polling, stop_telegram_polling
 
 settings = get_settings()
@@ -43,7 +43,9 @@ def root() -> dict:
 app.include_router(connect.router, tags=["connect"])
 app.include_router(dashboard.router, tags=["dashboard"])
 app.include_router(forecast.router, tags=["forecast"])
+app.include_router(market.router, tags=["market"])
 app.include_router(ranking.router, tags=["ranking"])
+app.include_router(track_record.router, tags=["track-record"])
 app.include_router(alerts.router, tags=["alerts"])
 app.include_router(telegram.router, tags=["telegram"])
 app.include_router(reports.router, tags=["reports"])
