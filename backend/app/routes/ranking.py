@@ -1,11 +1,15 @@
 from fastapi import APIRouter
-from app.models.recommendation import Recommendation
-from app.services.investment_score_service import InvestmentScoreService
+from app.services.radar_service import RadarService
 
 router = APIRouter()
-service = InvestmentScoreService()
+service = RadarService()
 
 
-@router.get("/ranking", response_model=list[Recommendation])
-async def ranking() -> list[Recommendation]:
-    return service.ranking()
+@router.get("/radar")
+async def radar() -> dict:
+    return await service.list_assets()
+
+
+@router.get("/ranking")
+async def ranking() -> list[dict]:
+    return await service.ranking(limit=5)
