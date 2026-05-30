@@ -1,36 +1,80 @@
-# Despliegue en Render
+# Despliegue en Render — Wallbit Pulse
 
-Este monorepo incluye un [Render Blueprint](https://render.com/docs/blueprint-spec) en `render.yaml`.
+Blueprint IaC: [`render.yaml`](../render.yaml)  
+Repositorio: [andrew-apps/wallbit-pulse](https://github.com/andrew-apps/wallbit-pulse)
 
-## Servicios
+## Servicios creados
 
-| Servicio | Carpeta | Runtime | Puerto |
-|----------|---------|---------|--------|
-| `wallbit-pulse-api` | `backend/` | Python 3.11 + FastAPI | `$PORT` |
-| `wallbit-pulse-web` | `front/` | Node 20 + Next.js | `$PORT` |
+| Nombre | Tipo | Carpeta | URL ejemplo |
+|--------|------|---------|-------------|
+| `wallbit-pulse-api` | Web (Python 3.11) | `backend/` | `https://wallbit-pulse-api.onrender.com` |
+| `wallbit-pulse-web` | Web (Node 20) | `front/` | `https://wallbit-pulse-web.onrender.com` |
 
-## Desplegar
+Grupo de secretos: **`wallbit-pulse-secrets`**
 
-1. Sube el repo a GitHub (`andrew-apps/wallbit-pulse`).
-2. En [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**.
-3. Conecta el repositorio; Render detectará `render.yaml`.
-4. Completa las variables marcadas como secretas:
-   - `WALLBIT_API_KEY`
-   - `TELEGRAM_BOT_TOKEN` (opcional)
-   - `CEREBRAS_API_KEY` (opcional, explicaciones IA)
-5. Aplica el Blueprint. Render creará API + frontend y enlazará `NEXT_PUBLIC_API_URL` automáticamente.
+## Variables que debes completar en Render
 
-## Persistencia
+Al aplicar el Blueprint, Render te pedirá:
 
-La API usa SQLite en un disco Render (`backend/data/`). Sin disco, los datos se pierden en cada redeploy.
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `WALLBIT_API_KEY` | Sí | API Key Wallbit (`read`) |
+| `TELEGRAM_BOT_TOKEN` | No | Bot @wallbit_radar_bot |
+| `TELEGRAM_CHAT_ID` | No | Chat vinculado |
+| `CEREBRAS_API_KEY` | No | Explicaciones IA en forecast |
 
-## Health check
+Generadas automáticamente: `ENCRYPTION_KEY`, `NEXT_PUBLIC_API_URL`, `FRONTEND_URL`.
 
-- API: `GET /`
-- Swagger: `GET /docs`
+## Desplegar (Dashboard — recomendado)
 
-## Notas
+1. [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**
+2. Conecta GitHub → repo **`andrew-apps/wallbit-pulse`**
+3. Branch: **`main`**
+4. Blueprint name: **`wallbit-pulse`**
+5. Revisa los 2 servicios + grupo `wallbit-pulse-secrets`
+6. Completa secretos → **Deploy Blueprint**
 
-- El plan free puede dormir servicios tras inactividad.
-- Playwright (screenshots Telegram) no está habilitado en Render free; el resto de la API funciona.
-- Tras el deploy, conecta Wallbit desde `/connect` en la URL del frontend.
+## Desplegar (Cursor + Render MCP)
+
+1. Crea API Key: [Account Settings → API Keys](https://dashboard.render.com/u/settings#api-keys)
+2. En Windows (PowerShell):
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("RENDER_API_KEY", "rnd_tu_key", "User")
+```
+
+3. Reinicia Cursor. En el chat:
+
+```
+Set my Render workspace to [TU_WORKSPACE]
+List my Render services
+```
+
+4. El MCP **no aplica Blueprints** directamente; usa el Dashboard para el primer deploy. Después el MCP sirve para logs, métricas y env vars.
+
+## Script local
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/deploy-render.ps1
+```
+
+Abre el asistente de Blueprint y valida `render.yaml` si tienes Render CLI.
+
+## Post-deploy
+
+1. Abre `https://wallbit-pulse-web.onrender.com/connect`
+2. Conecta tu API Key Wallbit (o usa la del grupo si ya la pusiste)
+3. Prueba `/forecast?symbol=GE` y `/dashboard`
+
+## Notas técnicas
+
+- **`TELEGRAM_USE_POLLING=false`** en producción (evita conflictos 409 en Render).
+- **SQLite** en `backend/data/` — en plan free los datos pueden perderse al redeploy; para persistencia usa plan **Starter** + disco en `render.yaml`.
+- **Playwright** (screenshots Telegram) no corre en free; el resto de la API sí.
+- **CORS**: `FRONTEND_URL` se enlaza solo al dominio de `wallbit-pulse-web`.
+
+## Health checks
+
+- API: `GET /` → `{ "status": "ok" }`
+- API docs: `/docs`
+- Web: `/`

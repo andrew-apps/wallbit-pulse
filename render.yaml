@@ -1,5 +1,18 @@
-# Render Blueprint — Wallbit Pulse monorepo
+# Wallbit Pulse — Render Blueprint (monorepo)
 # Docs: https://render.com/docs/blueprint-spec
+# Deploy: Dashboard → New → Blueprint → andrew-apps/wallbit-pulse
+
+envVarGroups:
+  - name: wallbit-pulse-secrets
+    envVars:
+      - key: WALLBIT_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
 
 services:
   - type: web
@@ -7,56 +20,55 @@ services:
     runtime: python
     region: oregon
     plan: free
+    repo: https://github.com/andrew-apps/wallbit-pulse
+    branch: main
     rootDir: backend
     buildCommand: pip install -r requirements.txt
+    preDeployCommand: mkdir -p data
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
+    autoDeployTrigger: commit
     envVars:
+      - fromGroup: wallbit-pulse-secrets
       - key: PYTHON_VERSION
         value: "3.11.11"
       - key: WALLBIT_BASE_URL
         value: https://api.wallbit.io
-      - key: WALLBIT_API_KEY
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
       - key: TELEGRAM_BOT_USERNAME
         value: wallbit_radar_bot
       - key: TELEGRAM_USE_POLLING
-        value: "true"
-      - key: ENCRYPTION_KEY
-        generateValue: true
-      - key: CEREBRAS_API_KEY
-        sync: false
+        value: "false"
       - key: CEREBRAS_MODEL
         value: gpt-oss-120b
       - key: YAHOO_DEFAULT_PERIOD
         value: 1y
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///./data/wallbit_pulse.db
       - key: FRONTEND_URL
         fromService:
           type: web
           name: wallbit-pulse-web
           envVarKey: RENDER_EXTERNAL_URL
-      - key: DATABASE_URL
-        value: sqlite:///./data/wallbit_pulse.db
-    disk:
-      name: pulse-api-data
-      mountPath: /opt/render/project/src/backend/data
-      sizeGB: 1
 
   - type: web
     name: wallbit-pulse-web
     runtime: node
     region: oregon
     plan: free
+    repo: https://github.com/andrew-apps/wallbit-pulse
+    branch: main
     rootDir: front
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
         value: "20"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
       - key: NEXT_PUBLIC_API_URL
         fromService:
           type: web
