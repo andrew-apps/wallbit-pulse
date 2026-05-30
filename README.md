@@ -11,11 +11,13 @@ MVP para el Wallbit API Challenge: web app minimalista + backend FastAPI + agent
 - Risk Snapshot HTML en frontend: `/report/risk-alert/risk-nvda-5`
 - Risk Snapshot HTML backend: `GET /report/risk-alert/{alert_id}`
 - Screenshot Playwright + envio Telegram: `POST /reports/{alert_id}/send-telegram`
+- Bot Telegram [@wallbit_radar_bot](https://t.me/wallbit_radar_bot): guia en [docs/TELEGRAM_BOT.md](docs/TELEGRAM_BOT.md)
 
 ## Correr frontend
 
 ```bash
 cd front
+cp .env.local.example .env.local
 pnpm install
 pnpm dev
 ```
@@ -41,29 +43,64 @@ python -m playwright install chromium
 uvicorn app.main:app --reload --port 8000
 ```
 
+Con bot Telegram y polling automatico:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start-with-telegram.ps1
+```
+
 Backend: `http://localhost:8000`  
 Swagger: `http://localhost:8000/docs`
 
 ## Variables de entorno
 
-Copiar `backend/.env.example` a `backend/.env`.
+Copiar `backend/.env.example` a `backend/.env` o sincronizar desde la raiz:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/sync-telegram-env.ps1
+```
 
 ```env
 WALLBIT_BASE_URL=https://api.wallbit.io
 WALLBIT_API_KEY=
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
+TELEGRAM_BOT_USERNAME=wallbit_radar_bot
+TELEGRAM_USE_POLLING=true
 FRONTEND_URL=http://localhost:3000
 ENCRYPTION_KEY=change-this-local-secret
 ```
 
+Frontend (`front/.env.local`):
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
 Si no configuras Wallbit o Telegram, el MVP usa modo demo y no envia dinero ni mensajes reales.
+
+### Conectar cuenta Wallbit real
+
+1. Crea una API Key en **Wallbit → Settings → API Keys** con permiso **`read`**.
+2. Asegurate de tener el backend en `:8000` y `front/.env.local` con `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+3. En `/connect` pega la key y pulsa **Validar conexion**.
+4. El backend valida contra `GET /api/public/v1/balance/checking`, cifra la key y la guarda en SQLite.
+5. El dashboard (`/dashboard`) mostrara balances reales de tu cuenta.
+
+Errores comunes:
+
+| Mensaje | Solucion |
+|---------|----------|
+| API Key invalida | Copia la key completa desde Wallbit |
+| Sin permiso `read` | Crea una key nueva con lectura |
+| Backend no configurado | Crea `front/.env.local` y reinicia `pnpm dev` |
+| Error de red | Verifica internet y que `api.wallbit.io` responda |
 
 ## Demo en menos de 2 minutos
 
 1. Abrir landing.
 2. Conectar Wallbit en modo demo.
-3. Vincular Telegram con codigo demo.
+3. Vincular Telegram: abrir `/telegram`, enviar `/start WB-PULSE-XXXX` a [@wallbit_radar_bot](https://t.me/wallbit_radar_bot).
 4. Ver Pulse con cuatro cards.
 5. Abrir Forecast y simular BTC, USD 500, 30 dias.
 6. Presionar Enviar a Telegram.
