@@ -1,63 +1,105 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Bell, Loader2, Send, Shuffle, TrendingUp } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { ArrowRight, Bell, Loader2, Send, Shuffle } from "lucide-react"
+import { ConnectRequired } from "@/components/ConnectRequired"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScenarioCards } from "@/components/ScenarioCards"
+import { RealVsPredictiveChart } from "@/components/forecast/RealVsPredictiveChart"
+import { ForecastProjectionChart } from "@/components/forecast/ForecastProjectionChart"
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal"
 import { DisclaimerBanner } from "@/components/DisclaimerBanner"
-import { sendForecastToTelegram } from "@/lib/api"
-import { forecastPresets, type ForecastPreset, type RiskLevel } from "@/lib/data"
+import { AssetSearchCombobox } from "@/components/forecast/AssetSearchCombobox"
+import { ApiError, getRadar, getWallbitStatus, runForecast, sendForecastToTelegram } from "@/lib/api"
+import type { ForecastPreset } from "@/lib/data"
+import type { RadarAsset } from "@/lib/types"
 
-const symbols = ["BTC", "ETH", "SPY", "QQQ", "AAPL", "NVDA", "TSLA"]
 const horizons = [7, 15, 30]
 const profiles = [
   { value: "conservative", label: "Conservador" },
-  { value: "balanced", label: "Balanceado" },
+  { value: "balanced", label: "Moderado" },
   { value: "aggressive", label: "Agresivo" },
 ]
 
-function buildFallback(symbol: string, amount: number, horizon: number): ForecastPreset {
-  const risk: RiskLevel = symbol === "SPY" || symbol === "QQQ" ? "Bajo" : "Alto"
-  const volatilityFactor = risk === "Alto" ? 0.14 : 0.05
-  const horizonFactor = horizon / 30
-  return {
-    symbol,
-    currentPrice: symbol === "ETH" ? 3480 : symbol === "NVDA" ? 128.44 : 250,
-    amount,
-    horizonDays: horizon,
-    risk,
-    range: "Rango estimado segun volatilidad demo",
-    explanation:
-      risk === "Alto"
-        ? "Alta volatilidad: conviene comparar el escenario pesimista antes de operar."
-        : "Volatilidad moderada: el escenario base es estable, pero sigue siendo simulacion.",
-    scenarios: [
-      { label: "Pesimista", pnl: Math.round(-amount * volatilityFactor * horizonFactor), price: 230 },
-      { label: "Base", pnl: Math.round(amount * 0.035 * horizonFactor), price: 260 },
-      { label: "Optimista", pnl: Math.round(amount * volatilityFactor * 1.8 * horizonFactor), price: 290 },
-    ],
-  }
-}
-
 export function ForecastSimulator() {
-  const [symbol, setSymbol] = useState("BTC")
-  const [amount, setAmount] = useState(500)
+  const searchParams = useSearchParams()
+  const initialSymbol = searchParams.get("symbol")?.toUpperCase() || "SPY"
+
+  const [symbol, setSymbol] = useState(initialSymbol)
+  const [amount, setAmount] = useState(1000)
   const [horizon, setHorizon] = useState(30)
   const [profile, setProfile] = useState("balanced")
+  const [radarAssets, setRadarAssets] = useState<RadarAsset[]>([])
+  const [requiresConnection, setRequiresConnection] = useState(false)
+  const [forecast, setForecast] = useState<
+    (ForecastPreset & {
+      aiProvider?: string
+      yahooPeriod?: string
+      backtestMape?: number | null
+      historical?: import("@/lib/types").HistoryPoint[]
+      projection?: import("@/lib/types").ProjectionPoint[]
+    }) | null
+  >(null)
+  const [loading, setLoading] = useState(true)
+  const [forecastLoading, setForecastLoading] = useState(false)
+  const [forecastError, setForecastError] = useState("")
   const [telegramSent, setTelegramSent] = useState(false)
   const [telegramLoading, setTelegramLoading] = useState(false)
-  const [telegramDemo, setTelegramDemo] = useState(false)
   const [tradeOpen, setTradeOpen] = useState(false)
 
-  const forecast = useMemo(() => {
-    const preset = forecastPresets[symbol]
-    if (preset && amount === 500 && horizon === 30) return preset
-    return buildFallback(symbol, amount, horizon)
-  }, [symbol, amount, horizon])
+  useEffect(() => {
+    Promise.all([getWallbitStatus(), getRadar()])
+      .then(([status, radar]) => {
+        setRequiresConnection(!status.connected || status.demo)
+        setRadarAssets(radar.assets)
+        const match = radar.assets.find((a) => a.symbol === initialSymbol)
+        if (radar.assets.length && !match) {
+          const byName = radar.assets.find((a) => a.name.toLowerCase().includes(initialSymbol.toLowerCase()))
+          setSymbol(byName?.symbol ?? radar.assets[0].symbol)
+        } else if (match) {
+          setSymbol(match.symbol)
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [initialSymbol])
+
+  useEffect(() => {
+    if (requiresConnection || loading) return
+
+    setForecastLoading(true)
+    setForecastError("")
+    runForecast({
+      symbol,
+      amount,
+      horizon_days: horizon,
+      risk_profile: profile as "conservative" | "balanced" | "aggressive",
+    })
+      .then((result) => {
+        setForecast(result)
+        setTelegramSent(false)
+      })
+      .catch((err) => {
+        setForecast(null)
+        setForecastError(err instanceof ApiError ? err.message : "No se pudo calcular el forecast")
+      })
+      .finally(() => setForecastLoading(false))
+  }, [symbol, amount, horizon, profile, requiresConnection, loading])
+
+  const selectableAssets = useMemo(() => (radarAssets.length ? radarAssets : [{ symbol, name: symbol } as RadarAsset]), [radarAssets, symbol])
+
+  useEffect(() => {
+    if (!loading && symbol) {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get("symbol") !== symbol) {
+        params.set("symbol", symbol)
+        window.history.replaceState(null, "", `/forecast?${params.toString()}`)
+      }
+    }
+  }, [symbol, loading])
 
   async function handleSendTelegram() {
     setTelegramLoading(true)
@@ -69,7 +111,6 @@ export function ForecastSimulator() {
         risk_profile: profile as "conservative" | "balanced" | "aggressive",
       })
       setTelegramSent(result.sent)
-      setTelegramDemo(result.demo)
     } catch {
       setTelegramSent(false)
     } finally {
@@ -77,141 +118,161 @@ export function ForecastSimulator() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        Preparando simulador...
+      </div>
+    )
+  }
+
+  if (requiresConnection) {
+    return <ConnectRequired message="El forecast usa precios reales de Wallbit y guarda predicciones en tu track record." />
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" />
-          <h2 className="text-sm font-semibold">Simula un escenario</h2>
-        </div>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Calcula cuanto podrias ganar o perder segun monto y horizonte.
-        </p>
+    <div className="space-y-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Simula escenarios con precios reales de Wallbit. Cada simulacion queda registrada en Track Record.
+      </p>
 
-        <div className="mt-5 space-y-5">
-          <div className="space-y-2">
-            <Label>Activo</Label>
-            <Select value={symbol} onValueChange={setSymbol}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {symbols.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
+      <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
+        <section className="rounded-xl border border-border bg-card p-5 xl:sticky xl:top-24 xl:self-start">
+          <h2 className="text-sm font-semibold">Parametros</h2>
+
+          <div className="mt-5 space-y-5">
+            <div className="space-y-2">
+              <Label>Activo</Label>
+              <AssetSearchCombobox assets={selectableAssets} value={symbol} onChange={setSymbol} />
+              <p className="text-xs text-muted-foreground">Busca por ticker (GE) o nombre (General Electric).</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="forecast-amount">Monto (USD)</Label>
+              <Input
+                id="forecast-amount"
+                type="number"
+                min={1}
+                value={amount}
+                onChange={(event) => setAmount(Number(event.target.value))}
+                className="font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Horizonte</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {horizons.map((item) => (
+                  <Button
+                    key={item}
+                    type="button"
+                    variant={horizon === item ? "default" : "outline"}
+                    onClick={() => setHorizon(item)}
+                    className="h-10 px-2 text-xs sm:text-sm"
+                  >
+                    {item} dias
+                  </Button>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="forecast-amount">Monto</Label>
-            <Input
-              id="forecast-amount"
-              type="number"
-              min={1}
-              value={amount}
-              onChange={(event) => setAmount(Number(event.target.value))}
-              className="font-mono"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Horizonte</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {horizons.map((item) => (
-                <Button
-                  key={item}
-                  type="button"
-                  variant={horizon === item ? "default" : "outline"}
-                  onClick={() => setHorizon(item)}
-                  className="h-10"
-                >
-                  {item}d
-                </Button>
-              ))}
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <Label>Perfil de riesgo</Label>
+              <Select value={profile} onValueChange={setProfile}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button className="w-full" size="lg" onClick={() => setTradeOpen(true)} disabled={!forecast}>
+              Operar {symbol}
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          {forecastLoading ? (
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-8 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Calculando escenarios con datos reales...
+            </div>
+          ) : forecastError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-sm text-destructive">
+              {forecastError}
+            </div>
+          ) : forecast ? (
+            <>
+              <ScenarioCards scenarios={forecast.scenarios} amount={amount} />
+              <RealVsPredictiveChart
+                historical={forecast.historical ?? []}
+                projection={forecast.projection ?? []}
+                symbol={symbol}
+                period={forecast.yahooPeriod ?? "1y"}
+                backtestMape={forecast.backtestMape}
+              />
+              <ForecastProjectionChart amount={amount} horizonDays={horizon} scenarios={forecast.scenarios} />
+
+              <div className="brand-card p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-display text-sm font-semibold">Explicacion del agente</h3>
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-accent">
+                    {forecast.aiProvider === "cerebras" ? "Cerebras IA" : "Analisis local"}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{forecast.explanation}</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Precio actual {symbol}: ${forecast.currentPrice.toLocaleString("en-US")} · Riesgo: {forecast.risk} ·{" "}
+                  {forecast.range}
+                </p>
+              </div>
+            </>
+          ) : null}
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button onClick={handleSendTelegram} disabled={telegramLoading || !forecast}>
+              {telegramLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              {telegramSent ? "Enviado a Telegram" : "Enviar a Telegram"}
+            </Button>
+            <Button variant="outline" asChild>
+              <a href="/alerts">
+                <Bell className="size-4" />
+                Crear alerta
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href="/radar">
+                <Shuffle className="size-4" />
+                Ver radar
+              </a>
+            </Button>
           </div>
 
-          <div className="space-y-2">
-            <Label>Perfil</Label>
-            <Select value={profile} onValueChange={setProfile}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </section>
+          <DisclaimerBanner />
+        </section>
+      </div>
 
-      <section className="space-y-4">
-        <ScenarioCards scenarios={forecast.scenarios} />
-
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-muted-foreground">Precio actual</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">
-                ${forecast.currentPrice.toLocaleString("en-US")}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Rango estimado</p>
-              <p className="mt-1 text-lg font-semibold">{forecast.range}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Riesgo</p>
-              <p className={forecast.risk === "Alto" ? "mt-1 text-lg font-semibold text-destructive" : "mt-1 text-lg font-semibold text-accent"}>
-                {forecast.risk}
-              </p>
-            </div>
-          </div>
-          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{forecast.explanation}</p>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button onClick={handleSendTelegram} disabled={telegramLoading}>
-            {telegramLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {telegramSent
-              ? telegramDemo
-                ? "Preview demo enviado"
-                : "Enviado a Telegram"
-              : "Enviar a Telegram"}
-          </Button>
-          <Button variant="outline">
-            <Bell className="size-4" />
-            Crear alerta
-          </Button>
-          <Button variant="outline">
-            <Shuffle className="size-4" />
-            Simular rebalanceo
-          </Button>
-          <Button variant="secondary" onClick={() => setTradeOpen(true)}>
-            Preparar orden
-          </Button>
-        </div>
-
-        <DisclaimerBanner />
-      </section>
-
-      <TradeConfirmationModal
-        open={tradeOpen}
-        onOpenChange={setTradeOpen}
-        symbol={symbol}
-        side="BUY"
-        amount={amount}
-        risk={forecast.risk}
-        scenarios={forecast.scenarios}
-        readOnly
-      />
+      {forecast ? (
+        <TradeConfirmationModal
+          open={tradeOpen}
+          onOpenChange={setTradeOpen}
+          symbol={symbol}
+          side="BUY"
+          amount={amount}
+          risk={forecast.risk}
+          scenarios={forecast.scenarios}
+          readOnly
+        />
+      ) : null}
     </div>
   )
 }
