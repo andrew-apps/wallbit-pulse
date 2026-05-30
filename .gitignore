@@ -1,8 +1,25 @@
-# ── Secretos y entorno ──────────────────────────────────────────────
+# ── Secretos y entorno (NUNCA commitear) ───────────────────────────
 .env
 .env.*
 !.env.example
+!**/.env.example
+!.env.local.example
+!**/.env.local.example
+
 backend/.env
+front/.env
+front/.env.local
+front/.env*.local
+
+# Claves y credenciales sueltas
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+**/secrets.json
+**/credentials.json
 
 # ── Sistema operativo ───────────────────────────────────────────────
 .DS_Store
@@ -10,8 +27,9 @@ Thumbs.db
 Desktop.ini
 ehthumbs.db
 
-# ── Editores e IDEs ─────────────────────────────────────────────────
+# ── Editores, IDEs y herramientas locales ───────────────────────────
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -38,6 +56,8 @@ backend/build/
 backend/*.egg-info/
 backend/.coverage
 backend/htmlcov/
+backend/screenshots/
+backend/reports/
 
 # Playwright (screenshots / traces locales)
 backend/test-results/
@@ -68,8 +88,10 @@ front/__v0_jsx-dev-runtime.ts
 front/.snowflake/
 front/.v0-trash/
 
-# ── Logs y temporales (raíz) ────────────────────────────────────────
+# ── Logs, caches y temporales ───────────────────────────────────────
 *.log
 *.tmp
 *.temp
 .cache/
+coverage/
+*.tsbuildinfo
